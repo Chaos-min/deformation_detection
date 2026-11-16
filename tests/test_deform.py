@@ -159,6 +159,7 @@ def test_pipeline_end_to_end(tmp_path):
         str(out),
         buffer=5.0,
         params={"register": {"supervoxel_resolution": 3.0, "max_rotation_deg": 1.0}},
+        save_stages=True,
     )
     assert len(results) == 1
     d = out / "syn_A"
@@ -167,3 +168,5 @@ def test_pipeline_end_to_end(tmp_path):
     result = json.loads((d / "result.json").read_text(encoding="utf-8"))
     assert "counts" in result and result["counts"]["corepoints"] > 0
     assert result["registration"]["status"] in ("applied", "rejected", "fallback")
+    for name in result["stages"]:
+        assert (d / name).exists(), name

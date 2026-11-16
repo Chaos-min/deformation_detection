@@ -16,6 +16,7 @@ def main(argv=None):
     p.add_argument("--buffer", type=float, default=50.0, help="RoI 外扩缓冲带（米）")
     p.add_argument("--vmax", type=float, default=None, help="热图色标半幅（米），默认自动")
     p.add_argument("--params", default=None, help="参数覆盖 JSON")
+    p.add_argument("--stages", action="store_true", help="额外写出各阶段点云到 <out>/<id>/stages/")
     args = p.parse_args(argv)
 
     params = None
@@ -30,6 +31,7 @@ def main(argv=None):
             buffer=args.buffer,
             vmax=args.vmax,
             params=params,
+            save_stages=args.stages,
         )
     except DeformError as e:
         print(f"error: {e}", file=sys.stderr)

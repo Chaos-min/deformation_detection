@@ -118,6 +118,24 @@ def write_heatmap_las(path, xyz, rgb, classification, deformation, lod, signific
     out.write(str(path))
 
 
+def write_xyz_las(path, xyz, header_meta, classification=None):
+    """只写坐标（和可选分类），供各阶段自查。坐标系与输入一致。"""
+    header = laspy.LasHeader(point_format=0, version=str(header_meta["version"]))
+    header.scales = header_meta["scales"]
+    header.offsets = header_meta["offsets"]
+    for vlr in header_meta.get("vlrs") or []:
+        try:
+            header.vlrs.append(vlr)
+        except Exception:
+            pass
+    out = laspy.LasData(header)
+    out.x, out.y, out.z = xyz[:, 0], xyz[:, 1], xyz[:, 2]
+    if classification is not None:
+        out.classification = np.asarray(classification, np.uint8)
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    out.write(str(path))
+
+
 def _merge_params(defaults, overrides):
     out = {k: dict(v) if isinstance(v, dict) else v for k, v in defaults.items()}
     if not overrides:
@@ -133,7 +151,7 @@ def _merge_params(defaults, overrides):
 DEFAULT_PARAMS = {"denoise": {}, "iptd": {}, "register": {}, "change": {}}
 
 
-def process_roi(base_las, target_las, roi, out_dir, buffer=50.0, vmax=None, params=None):
+def process_roi(base_las, target_las, roi, out_dir, buffer=50.0, vmax=None, params=None, save_stages=False):
     params = _merge_params(DEFAULT_PARAMS, params)
     timings, warnings = {}, []
     center = np.asarray(roi["center"], float)
@@ -251,6 +269,34 @@ def process_roi(base_las, target_las, roi, out_dir, buffer=50.0, vmax=None, para
     )
     write_colorbar(out_roi / "colorbar.png", vmax_used, lod_med)
 
+    stage_files = []
+    if save_stages:
+        stage = out_roi / "stages"
+        # 配准后的点在基准期坐标系，加回 RoI 中心后可与原始点云叠合
+        dumps = {
+            "01_clip_base.las": base_xyz,
+            "01_clip_target.las": tgt_xyz,
+            "02_denoise_base.las": base_d + center,
+            "02_denoise_target.las": tgt_d + center,
+            "03_ground_base.las": ref_g + center,
+            "03_ground_target.las": tgt_g + center,
+            "04_registered_target.las": tgt_d_aligned + center,
+        }
+        for name, cloud in dumps.items():
+            write_xyz_las(stage / name, cloud, tgt_meta)
+            stage_files.append(f"stages/{name}")
+        write_heatmap_las(
+            stage / "05_corepoints.las",
+            core + center,
+            colorize(deformation, significant, vmax_used),
+            np.full(len(core), 2, np.uint8),
+            np.where(np.isfinite(deformation), deformation, 0.0),
+            lod,
+            significant.astype(np.uint8),
+            tgt_meta,
+        )
+        stage_files.append("stages/05_corepoints.las")
+
     ext = extrema(core + center, deformation, lod, significant)
     result = {
         "target_id": target_id,
@@ -276,13 +322,17 @@ def process_roi(base_las, target_las, roi, out_dir, buffer=50.0, vmax=None, para
         "params": params,
         "timings": timings,
         "warnings": list(dict.fromkeys(warnings + list(reg_info.get("warnings") or []))),
+        "stages": stage_files,
     }
     (out_roi / "result.json").write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
     return result
 
 
-def run(base_las, target_las, roi_json, out_dir, buffer=50.0, vmax=None, params=None):
+def run(base_las, target_las, roi_json, out_dir, buffer=50.0, vmax=None, params=None, save_stages=False):
     return [
-        process_roi(base_las, target_las, roi, out_dir, buffer=buffer, vmax=vmax, params=params)
+        process_roi(
+            base_las, target_las, roi, out_dir,
+            buffer=buffer, vmax=vmax, params=params, save_stages=save_stages,
+        )
         for roi in load_rois(roi_json)
     ]
