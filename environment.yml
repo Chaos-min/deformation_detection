@@ -1,0 +1,11 @@
+name: deform
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - py4dgeo
+      - laspy
+      - numpy
+      - scipy
+      - matplotlib
+      - pytest
