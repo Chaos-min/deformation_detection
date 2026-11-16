@@ -1,7 +1,7 @@
-/docs
-/data
+docs/
+data/
 
-/output
-
+output/
+.idea/
 
 py4dgeo.log
