@@ -119,6 +119,27 @@ def _write_xyz_las(path, xyz):
     las.write(str(path))
 
 
+def test_tfmptd_rejects_canopy_and_keeps_scarp():
+    from deform.tfmptd import tfmptd
+
+    xyz, is_ground = make_scene()
+    ground = tfmptd(xyz)
+    above = xyz[:, 2] - terrain(xyz[:, 0], xyz[:, 1])
+
+    assert (~ground[is_ground]).mean() < 0.02, "地面点被错判为非地面的比例应 < 2%"
+    assert ground[(~is_ground) & (above > 2.0)].mean() < 0.01, "高于地面 2 m 的树冠不应被当成地面"
+    near_scarp = is_ground & (np.abs(xyz[:, 0] - 30.0) < 1.0)
+    assert ground[near_scarp].mean() > 0.7, "陡坎上下 1 m 内的地面点应大部分保留"
+
+
+def test_colorbar_marks_lod_median(tmp_path):
+    from deform.change import write_colorbar
+
+    path = tmp_path / "colorbar.png"
+    write_colorbar(path, vmax=5.73, lod_median=0.186)
+    assert path.stat().st_size > 1000
+
+
 def test_pipeline_end_to_end(tmp_path):
     from deform.pipeline import run
 

@@ -19,6 +19,7 @@ from deform.change import (
 )
 from deform.denoise import denoise
 from deform.iptd import iptd
+from deform.tfmptd import tfmptd
 from deform.register import apply_transform, register
 
 
@@ -148,10 +149,11 @@ def _merge_params(defaults, overrides):
     return out
 
 
-DEFAULT_PARAMS = {"denoise": {}, "iptd": {}, "register": {}, "change": {}}
+DEFAULT_PARAMS = {"denoise": {}, "iptd": {}, "tfmptd": {}, "register": {}, "change": {}}
+_GROUND = {"iptd": iptd, "tfmptd": tfmptd}
 
 
-def process_roi(base_las, target_las, roi, out_dir, buffer=50.0, vmax=None, params=None, save_stages=False):
+def process_roi(base_las, target_las, roi, out_dir, buffer=50.0, vmax=None, params=None, save_stages=False, ground="iptd"):
     params = _merge_params(DEFAULT_PARAMS, params)
     timings, warnings = {}, []
     center = np.asarray(roi["center"], float)
@@ -187,10 +189,13 @@ def process_roi(base_las, target_las, roi, out_dir, buffer=50.0, vmax=None, para
     timings["denoise"] = time.perf_counter() - t0
     base_d, tgt_d = base_local[keep_b], tgt_local[keep_t]
 
+    if ground not in _GROUND:
+        raise DeformError(f"unknown ground filter: {ground}")
+    filt = _GROUND[ground]
     t0 = time.perf_counter()
-    g_b = iptd(base_d, **params["iptd"])
-    g_t = iptd(tgt_d, **params["iptd"])
-    timings["iptd"] = time.perf_counter() - t0
+    g_b = filt(base_d, **params[ground])
+    g_t = filt(tgt_d, **params[ground])
+    timings[ground] = time.perf_counter() - t0
     ref_g, tgt_g = base_d[g_b], tgt_d[g_t]
 
     origin2 = np.zeros(2)
@@ -318,6 +323,7 @@ def process_roi(base_las, target_las, roi, out_dir, buffer=50.0, vmax=None, para
             "corepoints": int(len(core)),
             "significant": int(significant.sum()),
         },
+        "ground_method": ground,
         "vmax": vmax_used,
         "params": params,
         "timings": timings,
@@ -328,11 +334,11 @@ def process_roi(base_las, target_las, roi, out_dir, buffer=50.0, vmax=None, para
     return result
 
 
-def run(base_las, target_las, roi_json, out_dir, buffer=50.0, vmax=None, params=None, save_stages=False):
+def run(base_las, target_las, roi_json, out_dir, buffer=50.0, vmax=None, params=None, save_stages=False, ground="iptd"):
     return [
         process_roi(
             base_las, target_las, roi, out_dir,
-            buffer=buffer, vmax=vmax, params=params, save_stages=save_stages,
+            buffer=buffer, vmax=vmax, params=params, save_stages=save_stages, ground=ground,
         )
         for roi in load_rois(roi_json)
     ]
