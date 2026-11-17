@@ -107,25 +107,37 @@ def colorize(deformation, significant, vmax, no_data_mask=None):
 
 
 def write_colorbar(path, vmax, lod_median=None):
-    """写出距离-颜色对应条。"""
+    """写出距离-颜色对应条。冷暖从各点自己的检测限开始；虚线标出检测限中位数。"""
+    import os
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    from matplotlib import font_manager
     from matplotlib.colors import Normalize
-    import matplotlib.cm as cm
 
-    fig, ax = plt.subplots(figsize=(6, 1.2))
+    font = None
+    for name in ("msyh.ttc", "simhei.ttf"):
+        fp = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts", name)
+        if os.path.isfile(fp):
+            font = font_manager.FontProperties(fname=fp)
+            break
+
+    fig, ax = plt.subplots(figsize=(8, 1.8))
     gradient = np.linspace(-vmax, vmax, 256).reshape(1, -1)
     ax.imshow(gradient, aspect="auto", cmap="RdBu_r", norm=Normalize(-vmax, vmax), extent=[-vmax, vmax, 0, 1])
     ax.set_yticks([])
-    ax.set_xlabel("deformation along normal (m); warm=up, cool=down")
-    if lod_median is not None and np.isfinite(lod_median):
+    ax.set_xlabel("沿法线的形变（米）：暖色上升，冷色沉降", fontproperties=font)
+    if lod_median is not None and np.isfinite(lod_median) and lod_median < vmax:
         for x in (-lod_median, lod_median):
             ax.axvline(x, color="k", lw=0.8, ls="--")
-        ax.set_title(f"vmax={vmax:.3f} m, median LoD={lod_median:.3f} m")
+        ax.set_title(
+            f"虚线为检测限中位数 {lod_median:.3f} m（着色起点，低于各点自己的检测限为白色）\n"
+            f"颜色在 ±{vmax:.3f} m 饱和",
+            fontproperties=font,
+        )
     else:
-        ax.set_title(f"vmax={vmax:.3f} m")
+        ax.set_title(f"颜色在 ±{vmax:.3f} m 饱和", fontproperties=font)
     fig.tight_layout()
     fig.savefig(path, dpi=120)
     plt.close(fig)
