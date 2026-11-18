@@ -84,6 +84,17 @@ def test_register_recovers_known_shift_with_deformation_patch():
     stable = ~patch
     med = np.median(aligned[stable] - ref[stable], axis=0)
     assert np.linalg.norm(med) < 0.03, f"稳定区残余位移过大: {med}, status={info['status']}"
+    assert np.isfinite(info["residual_before"]) and np.isfinite(info["residual_after"])
+
+
+def test_registration_error_uses_stable_cluster_not_the_tail():
+    from deform.change import stable_registration_error
+
+    rng = np.random.default_rng(0)
+    stable = rng.normal(0.0, 0.02, 4000)
+    tail = rng.uniform(1.0, 8.0, 1500)
+    reg = stable_registration_error(np.r_[stable, tail])
+    assert 0.012 < reg < 0.035, reg
 
 
 def test_m3c2_recovers_10cm_uplift_and_colorize_sign():

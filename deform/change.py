@@ -13,6 +13,22 @@ def voxel_corepoints(xyz, voxel=0.25):
     return xyz[np.sort(idx)]
 
 
+def stable_registration_error(deformation):
+    """配准误差只从形变最集中的那一半点上估计。
+
+    这半点是数值上的稳定点，不要求落在某一块地面上。开挖、残留植被等大形变
+    落在这段窗口外面，不参与。正态总体下，含一半样本的最短区间宽度约为 1.349σ。
+    """
+    x = np.sort(np.asarray(deformation, float))
+    x = x[np.isfinite(x)]
+    n = len(x)
+    if n < 20:
+        return 0.0
+    k = max(n // 2, 2)
+    width = x[k - 1:] - x[:n - k + 1]
+    return float(np.min(width) / 1.349)
+
+
 def m3c2(
     ref_ground,
     tgt_ground,
@@ -45,12 +61,8 @@ def m3c2(
     distances, unc = algo.run()
     deformation = -np.asarray(distances, float)
 
+    reg = stable_registration_error(deformation)
     valid = np.isfinite(deformation)
-    if valid.any():
-        med = np.median(deformation[valid])
-        reg = float(1.4826 * np.median(np.abs(deformation[valid] - med)))
-    else:
-        reg = 0.0
 
     lod0 = np.asarray(unc["lodetection"], float)
     lod = lod0 + 1.96 * reg

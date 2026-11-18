@@ -35,6 +35,27 @@ def _rotation_deg(matrix):
     return float(np.degrees(np.arccos(np.clip(c, -1.0, 1.0))))
 
 
+def _m3c2_gaps(ref, tgt):
+    """沿局部法线的 M3C2 距离，供配准残差诊断。配准本身仍用原来的稳定区 ICP。"""
+    core = voxel_downsample(tgt, 1.0)
+    if len(core) < 30 or len(ref) < 30:
+        return np.array([])
+    algo = py4dgeo.M3C2(
+        epochs=(
+            py4dgeo.Epoch(np.ascontiguousarray(tgt, np.float64)),
+            py4dgeo.Epoch(np.ascontiguousarray(ref, np.float64)),
+        ),
+        corepoints=np.ascontiguousarray(core, np.float64),
+        normal_radii=[0.5, 1.0, 2.0],
+        cyl_radius=0.5,
+        max_distance=10.0,
+        registration_error=0.0,
+        orientation_vector=np.array([0.0, 0.0, 1.0]),
+    )
+    distances, _ = algo.run()
+    return -np.asarray(distances, float)
+
+
 def _point_to_plane_residuals(ref, ref_normals, tgt):
     _, idx = cKDTree(ref).query(tgt, workers=-1)
     d = np.einsum("ni,ni->n", tgt - ref[idx], ref_normals[idx])
@@ -130,7 +151,11 @@ def register(
     ref_e.calculate_normals(radius=1.0)
     tgt_e.calculate_normals(radius=1.0)  # icp_with_stable_areas 要求两期都有法线
     normals = np.asarray(ref_e.normals)
-    residual_before = _mad(_point_to_plane_residuals(ref, normals, tgt))
+    # 是否采用变换仍看点到面残差。写进结果的残差改用法线方向的 M3C2，避免陡坡上用三维最近点。
+    plane_before = _mad(_point_to_plane_residuals(ref, normals, tgt))
+    residual_before = _mad(_m3c2_gaps(ref, tgt))
+    if not np.isfinite(residual_before):
+        residual_before = plane_before
 
     try:
         trafo = py4dgeo.icp_with_stable_areas(
@@ -168,15 +193,18 @@ def register(
     center_shift = np.linalg.norm(_apply(reduction_point[None], matrix, reduction_point)[0] - reduction_point)
     rot = _rotation_deg(matrix)
     aligned = _apply(tgt, matrix, reduction_point)
-    residual_after = _mad(_point_to_plane_residuals(ref, normals, aligned))
+    plane_after = _mad(_point_to_plane_residuals(ref, normals, aligned))
+    residual_after = _mad(_m3c2_gaps(ref, aligned))
+    if not np.isfinite(residual_after):
+        residual_after = plane_after
 
     reject = False
     if center_shift > max_translation or rot > max_rotation_deg:
         warnings.append(f"transform too large: shift={center_shift:.3f}m rot={rot:.3f}deg")
         reject = True
-    if residual_after > residual_before * residual_worsen_ratio and np.isfinite(residual_before):
+    if plane_after > plane_before * residual_worsen_ratio and np.isfinite(plane_before):
         warnings.append(
-            f"residual worsened: before={residual_before:.4f} after={residual_after:.4f}"
+            f"residual worsened: before={plane_before:.4f} after={plane_after:.4f}"
         )
         reject = True
 
@@ -185,7 +213,7 @@ def register(
             fb, ferr = _fallback_ring_icp(ref_ground, tgt_ground, reduction_point, ring_mask_tgt, voxel)
             if fb is not None:
                 aligned = _apply(tgt, fb, reduction_point)
-                residual_after = _mad(_point_to_plane_residuals(ref, normals, aligned))
+                residual_after = _mad(_m3c2_gaps(ref, aligned))
                 return fb, {
                     "status": "fallback",
                     "matrix": fb.tolist(),
