@@ -144,12 +144,13 @@ def write_colorbar(path, vmax, lod_median=None):
         for x in (-lod_median, lod_median):
             ax.axvline(x, color="k", lw=0.8, ls="--")
         ax.set_title(
-            f"虚线为检测限中位数 {lod_median:.3f} m（着色起点，低于各点自己的检测限为白色）\n"
-            f"颜色在 ±{vmax:.3f} m 饱和",
+            f"虚线为检测限中位数 {lod_median:.3f} m\n",
+            # f"颜色在 ±{vmax:.3f} m 饱和",
             fontproperties=font,
         )
     else:
-        ax.set_title(f"颜色在 ±{vmax:.3f} m 饱和", fontproperties=font)
+        # ax.set_title(f"颜色在 ±{vmax:.3f} m 饱和", fontproperties=font)
+        ax.set_title(f"检测限 {lod_median:.3f} m 为空值", fontproperties=font)
     fig.tight_layout()
     fig.savefig(path, dpi=120)
     plt.close(fig)
