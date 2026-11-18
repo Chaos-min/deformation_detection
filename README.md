@@ -19,8 +19,8 @@ python -m deform --base 基准.las --target 目标.las --roi data/mountain_roi.j
 |---|---|
 | `--buffer` | RoI 外扩缓冲带，默认 50 m，供配准用 |
 | `--vmax` | 色标半幅（米）；省略则按显著形变自动取 |
-| `--ground` | 地面提取：`iptd`（默认）或 `tfmptd`（多尺度 PTD） |
-| `--params` | 覆盖 JSON，键为 `denoise` / `iptd` / `tfmptd` / `register` / `change` |
+| `--ground` | 地面提取：`iptd`（默认）、`tfmptd` 或 `csf`（布料先保陡坡，再剥贴地植被） |
+| `--params` | 覆盖 JSON，键为 `denoise` / `iptd` / `tfmptd` / `csf` / `register` / `change` |
 | `--stages` | 额外写出各阶段点云，供算法自查 |
 
 `roi.json` 可以是一个对象或对象列表（多个山体逐个处理）。`w` 为东西向全长，`h` 为南北向全长；`l` 不参与裁剪。

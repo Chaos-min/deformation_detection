@@ -4,6 +4,7 @@ dependencies:
   - pip
   - pip:
       - py4dgeo
+      - cloth-simulation-filter
       - laspy
       - numpy
       - scipy

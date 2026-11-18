@@ -132,6 +132,20 @@ def test_tfmptd_rejects_canopy_and_keeps_scarp():
     assert ground[near_scarp].mean() > 0.7, "陡坎上下 1 m 内的地面点应大部分保留"
 
 
+def test_csf_rejects_tall_canopy():
+    from deform.csf_ground import csf_ground
+
+    xyz, is_ground = make_scene()
+    ground = csf_ground(xyz)
+    above = xyz[:, 2] - terrain(xyz[:, 0], xyz[:, 1])
+
+    assert ground[(~is_ground) & (above > 2.0)].mean() < 0.02, "高于地面 2 m 的树冠不应被当成地面"
+    assert ground[(~is_ground) & (above > 0.4)].mean() < 0.15, "贴地植被不应大片留在地面里"
+    assert ground[is_ground].mean() > 0.8, "大部分地面点应保留"
+    near_scarp = is_ground & (np.abs(xyz[:, 0] - 30.0) < 1.0)
+    assert ground[near_scarp].mean() > 0.7, "陡坎上下 1 m 内的地面点应大部分保留"
+
+
 def test_colorbar_marks_lod_median(tmp_path):
     from deform.change import write_colorbar
 

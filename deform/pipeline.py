@@ -20,6 +20,7 @@ from deform.change import (
 from deform.denoise import denoise
 from deform.iptd import iptd
 from deform.tfmptd import tfmptd
+from deform.csf_ground import csf_ground
 from deform.register import apply_transform, register
 
 
@@ -149,8 +150,8 @@ def _merge_params(defaults, overrides):
     return out
 
 
-DEFAULT_PARAMS = {"denoise": {}, "iptd": {}, "tfmptd": {}, "register": {}, "change": {}}
-_GROUND = {"iptd": iptd, "tfmptd": tfmptd}
+DEFAULT_PARAMS = {"denoise": {}, "iptd": {}, "tfmptd": {}, "csf": {}, "register": {}, "change": {}}
+_GROUND = {"iptd": iptd, "tfmptd": tfmptd, "csf": csf_ground}
 
 
 def process_roi(base_las, target_las, roi, out_dir, buffer=50.0, vmax=None, params=None, save_stages=False, ground="iptd"):
