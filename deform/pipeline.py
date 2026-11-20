@@ -154,7 +154,7 @@ DEFAULT_PARAMS = {"denoise": {}, "iptd": {}, "tfmptd": {}, "csf": {}, "register"
 _GROUND = {"iptd": iptd, "tfmptd": tfmptd, "csf": csf_ground}
 
 
-def process_roi(base_las, target_las, roi, out_dir, buffer=50.0, vmax=None, params=None, save_stages=False, ground="iptd"):
+def process_roi(base_las, target_las, roi, out_dir, buffer=50.0, vmax=None, params=None, save_stages=False, ground="csf"):
     params = _merge_params(DEFAULT_PARAMS, params)
     timings, warnings = {}, []
     center = np.asarray(roi["center"], float)
@@ -337,7 +337,7 @@ def process_roi(base_las, target_las, roi, out_dir, buffer=50.0, vmax=None, para
     return result
 
 
-def run(base_las, target_las, roi_json, out_dir, buffer=50.0, vmax=None, params=None, save_stages=False, ground="iptd"):
+def run(base_las, target_las, roi_json, out_dir, buffer=50.0, vmax=None, params=None, save_stages=False, ground="csf"):
     return [
         process_roi(
             base_las, target_las, roi, out_dir,

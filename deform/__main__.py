@@ -17,7 +17,7 @@ def main(argv=None):
     p.add_argument("--vmax", type=float, default=None, help="热图色标半幅（米），默认自动")
     p.add_argument("--params", default=None, help="参数覆盖 JSON")
     p.add_argument("--stages", action="store_true", help="额外写出各阶段点云到 <out>/<id>/stages/")
-    p.add_argument("--ground", choices=("iptd", "tfmptd", "csf"), default="iptd",
+    p.add_argument("--ground", choices=("iptd", "tfmptd", "csf"), default="csf",
                    help="地面提取：iptd、tfmptd 或多尺度布料 csf，默认 IPTD")
     args = p.parse_args(argv)
 
