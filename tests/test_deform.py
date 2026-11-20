@@ -66,7 +66,7 @@ def test_iptd_separates_ground_from_vegetation_and_keeps_scarp():
 
 
 def test_register_recovers_known_shift_with_deformation_patch():
-    from deform.register import apply_transform, register
+    from deform.register import apply_transform, invert_transform, register
 
     ref = make_ground_only(seed=2)
     shift = np.array([0.05, -0.03, 0.02])
@@ -79,7 +79,9 @@ def test_register_recovers_known_shift_with_deformation_patch():
     matrix, info = register(ref, tgt, reduction_point=np.mean(ref, 0), voxel=0.5,
                             supervoxel_resolution=3.0, initial_distance_threshold=0.3,
                             level_of_detection=0.05, max_translation=0.5, max_rotation_deg=1.0)
-    aligned = apply_transform(tgt, matrix, np.mean(ref, 0))
+    x0 = np.mean(ref, 0)
+    aligned = apply_transform(tgt, matrix, x0)
+    assert np.allclose(invert_transform(aligned, matrix, x0), tgt)
     # 稳定区（非 patch）上的中位位移应接近 0
     stable = ~patch
     med = np.median(aligned[stable] - ref[stable], axis=0)
@@ -170,7 +172,7 @@ def test_pipeline_end_to_end(tmp_path):
 
     # 小场景但保证 RoI 内地面点 > 1000：用较高密度、较小缓冲
     ref = make_ground_only(seed=4, density=50.0)
-    tgt = ref.copy()
+    tgt = ref + np.array([0.08, -0.05, 0.03])
     patch = (tgt[:, 0] > 35) & (tgt[:, 0] < 45) & (tgt[:, 1] > 12) & (tgt[:, 1] < 22)
     tgt[patch, 2] += 0.12
     # 加少量植被，避免 IPTD 把一切当地面
@@ -213,6 +215,14 @@ def test_pipeline_end_to_end(tmp_path):
         assert (d / name).exists(), name
     result = json.loads((d / "result.json").read_text(encoding="utf-8"))
     assert "counts" in result and result["counts"]["corepoints"] > 0
-    assert result["registration"]["status"] in ("applied", "rejected", "fallback")
+    assert result["registration"]["status"] == "applied"
+    assert np.linalg.norm(result["registration"]["translation"]) > 0.02
+    import laspy
+    cloud = laspy.read(d / "ground_heatmap.las")
+    pts = np.column_stack((np.asarray(cloud.x), np.asarray(cloud.y), np.asarray(cloud.z)))
+    marked = [result[k]["xyz"] for k in ("max_positive", "max_negative") if result[k]]
+    assert marked, "抬升块应给出显著极值"
+    for xyz in marked:
+        assert np.linalg.norm(pts - xyz, axis=1).min() < 0.002, xyz
     for name in result["stages"]:
         assert (d / name).exists(), name

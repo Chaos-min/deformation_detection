@@ -28,6 +28,13 @@ def _apply(xyz, matrix, reduction_point):
     return (xyz - x0) @ R.T + t + x0
 
 
+def _invert(xyz, matrix, reduction_point):
+    """_apply 的逆。"""
+    R, t = matrix[:3, :3], matrix[:3, 3]
+    x0 = np.asarray(reduction_point, float)
+    return (xyz - t - x0) @ R + x0
+
+
 def _rotation_deg(matrix):
     R = matrix[:3, :3]
     # 稳健：由迹求旋转角
@@ -240,3 +247,4 @@ def register(
 
 # 供 pipeline 复用
 apply_transform = _apply
+invert_transform = _invert

@@ -21,7 +21,7 @@ from deform.denoise import denoise
 from deform.iptd import iptd
 from deform.tfmptd import tfmptd
 from deform.csf_ground import csf_ground
-from deform.register import apply_transform, register
+from deform.register import apply_transform, invert_transform, register
 
 
 class DeformError(Exception):
@@ -303,7 +303,9 @@ def process_roi(base_las, target_las, roi, out_dir, buffer=50.0, vmax=None, para
         )
         stage_files.append("stages/05_corepoints.las")
 
-    ext = extrema(core + center, deformation, lod, significant)
+    # 核心点在配准后的局部坐标里；页面用的热图是目标期原始坐标
+    core_on_target = invert_transform(core, matrix, np.zeros(3))
+    ext = extrema(core_on_target + center, deformation, lod, significant)
     result = {
         "target_id": target_id,
         "base_file": str(base_las),
